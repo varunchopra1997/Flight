@@ -1,0 +1,245 @@
+import pandas as pd
+import numpy as np
+import pymysql
+import datetime
+pd.set_option('display.max_rows', 1000)
+pd.set_option('display.max_columns', 500)
+pd.set_option('display.width', 1000)
+
+
+#Splitting the Description column of Airport Data in City , Country, Airport Name
+
+airportdf= pd.read_csv("L_AIRPORT.csv",skiprows=1, names=['Code','Description'])
+airportdf['City'] = airportdf.Description.str.split(',').str.get(0)
+country_name_split= airportdf.Description.str.split(',').str.get(1)
+airportdf['Country']= country_name_split.str.split(':').str.get(0)
+airportdf['Airport_Name']= country_name_split.str.split(':').str.get(1)
+airportdf.drop('Description',axis=1, inplace=True)
+airportdf.fillna(value={'Country':'NA','Airport_Name':'NA'},inplace=True)
+airportdf
+
+try:
+    conn= pymysql.connect(host='localhost',user='sammy',password='password',database='flight')
+    # create cursor
+    cursor=conn.cursor()
+    
+# creating column list for insertion
+    cols = "`,`".join([str(i) for i in airportdf.columns.tolist()])
+
+
+
+# Insert DataFrame recrds one by one.
+    for i,row in airportdf.iterrows():
+        sql = "INSERT INTO `airport` (`" +cols + "`) VALUES (" + "%s,"*(len(row)-1) + "%s)"
+        cursor.execute(sql, tuple(row))
+    # the connection is not autocommitted by default, so we must commit to save our changes
+        conn.commit()
+
+    print("true")
+except pymysql.Error as e:
+        print(e)
+
+Fillin data in Empty cells of Plane Data
+"tailnum": "NA",
+    "type": "NA",
+    "manufacturer": "NA",
+    "issue_date": '31/12/9999',
+    "model": "NA",
+    "status": "NA",
+    "aircraft_type":"NA",
+    "engine_type":"NA",
+    "year":'9999'
+
+def date_convetor(datelist):
+    final=[]
+    for item in datelist:
+        year= int(item[6:])
+        month=int(item[:2])
+        day=int(item[3:5])
+        date= str(year)+"-"+str(month)+"-"+str(day)
+        #print(date)
+        date_obj= datetime.datetime.strptime(date,"%Y-%m-%d")
+        final.append(item)
+    return final
+
+
+planedf= pd.read_csv('L_PLANE.csv', skiprows=1, names=['tailnum','type','manufacturer','issue_date','model','status','aircraft_type','engine_type','year'])
+values={
+    "tailnum": "NA",
+    "type": "NA",
+    "manufacturer": "NA",
+    "issue_date": '12/31/9999',
+    "model": "NA",
+    "status": "NA",
+    "aircraft_type":"NA",
+    "engine_type":"NA",
+    "year":'9999'
+}
+
+planedf=planedf.fillna(value=values)
+datelist= planedf["issue_date"].to_list()
+planedf['issue_date']= date_convetor(datelist)
+planedf['issue_date'] = pd.to_datetime(planedf['issue_date'], infer_datetime_format=True)
+
+planedf['issue_date']= planedf['issue_date']
+#planedf['issue_date'] = planedf['issue_date'].dt.strftime('%d/%m/%Y')
+
+planedf
+
+try:
+    conn= pymysql.connect(host='localhost',user='varun',password='password',database='flight')
+    # create cursor
+    cursor=conn.cursor()
+    
+# creating column list for insertion
+    cols = "`,`".join([str(i) for i in planedf.columns.tolist()])
+
+# Insert DataFrame recrds one by one.
+    for i,row in planedf.iterrows():
+        sql = "INSERT INTO `plane` (`" +cols + "`) VALUES (" + "%s,"*(len(row)-1) + "%s)"
+        cursor.execute(sql, tuple(row))
+    # the connection is not autocommitted by default, so we must commit to save our changes
+        conn.commit()
+
+    print("true")
+except pymysql.Error as e:
+        print(e)
+
+uniquedf= pd.read_csv('L_UNIQUE_CARRIERS.csv', skiprows=1, names=['Code','Description'])
+uniquedf= uniquedf.fillna(value= {'Code':'NA','Description':'NA'})
+try:
+    conn= pymysql.connect(host='localhost',user='sammy',password='password',database='flight')
+    # create cursor
+    cursor=conn.cursor()
+    
+# creating column list for insertion
+    cols = "`,`".join([str(i) for i in uniquedf.columns.tolist()])
+
+# Insert DataFrame recrds one by one.
+    for i,row in uniquedf.iterrows():
+        sql = "INSERT INTO `unique_carriers` (`" +cols + "`) VALUES (" + "%s,"*(len(row)-1) + "%s)"
+        cursor.execute(sql, tuple(row))
+    # the connection is not autocommitted by default, so we must commit to save our changes
+        conn.commit()
+
+    print("true")
+except pymysql.Error as e:
+        print(e)
+
+#Flight 2008 data Transformation
+
+# Filing NULL values as
+#  'CancellationCode':'F',
+#     'CarrierDelay': -1,
+#     'WeatherDelay': -1,
+#     'NASDelay': -1,
+#     'SecurityDelay': -1,
+#     'LateAircraftDelay': -1
+    
+    
+# convert_time() function is generalized function to transform time
+
+def convert_time(data):
+    timedata=[]
+    for item in data:
+        if len(item)==3 and item != 'NA':
+            timedata.append('0{0}'.format(item))
+        else:
+            timedata.append(item)
+    finaltime=[]
+    for item in timedata:
+            finaltime.append(item[:2]+':'+item[2:])
+    return finaltime
+
+ 
+
+flightdf= pd.read_csv('FLIGHT_2008.csv', skiprows=1, names=[
+    'Year','Month','DayofMonth','DayOfWeek','DepTime','CRSDepTime','ArrTime','CRSArrTime','UniqueCarrier','FlightNum','TailNum','ActualElapsedTime','CRSElapsedTime','AirTime','ArrDelay','DepDelay','Origin','Dest','Distance','TaxiIn','TaxiOut','Cancelled','CancellationCode','Diverted','CarrierDelay','WeatherDelay','NASDelay','SecurityDelay','LateAircraftDelay'
+])
+# converting 'DepTime','CRSDepTime','ArrTime','CRSArrTime' to object
+flightdf[['DepTime','CRSDepTime','ArrTime','CRSArrTime']]= flightdf[['DepTime','CRSDepTime','ArrTime','CRSArrTime']].astype('Int64')
+flightdf[['DepTime','CRSDepTime','ArrTime','CRSArrTime']]= flightdf[['DepTime','CRSDepTime','ArrTime','CRSArrTime']].astype(str)
+
+#converting 'CarrierDelay','WeatherDelay','NASDelay','SecurityDelay','LateAircraftDelay' to Int
+flightdf[['CarrierDelay','WeatherDelay','NASDelay','SecurityDelay','LateAircraftDelay']]= flightdf[['CarrierDelay','WeatherDelay','NASDelay','SecurityDelay','LateAircraftDelay']].astype('Int64')
+
+#cleaning NULL Values
+flightvalues= {
+    'Year':'NA',
+    'Month':'NA',
+    'DayofMonth':'NA',
+    'DayOfWeek':'NA',
+    'CancellationCode':'F',
+    'CarrierDelay': 0,
+    'WeatherDelay': 0,
+    'NASDelay': 0,
+    'SecurityDelay': 0,
+    'LateAircraftDelay': 0,
+    
+    'UniqueCarrier':'NA',
+    'FlightNum':'NA',
+    'TailNum' :'NA',
+    'ActualElapsedTime':0,
+    'CRSElapsedTime':0,
+    'AirTime':0,
+    'ArrDelay':0,
+    'DepDelay':0,
+    'Origin':'NA',
+    'Dest':'NA',
+    'Distance':0,
+    'TaxiIn':0,
+    'TaxiOut':0,
+    'Cancelled':'NA'
+}
+
+#flightdf= flightdf.drop_duplicates(subset=['TailNum'],keep=False)
+#flightdf.dropna(subset=['Year','Month','DayofMonth','DayOfWeek','DepTime','CRSDepTime','ArrTime','CRSArrTime','UniqueCarrier','FlightNum','TailNum','ActualElapsedTime','CRSElapsedTime','AirTime','ArrDelay','DepDelay','Origin','Dest','Distance','TaxiIn','TaxiOut','Cancelled','CancellationCode','Diverted','CarrierDelay','WeatherDelay','NASDelay','SecurityDelay','LateAircraftDelay'])
+flightdf.fillna(value= flightvalues,inplace=True)
+flightdf['DepTime']= convert_time(flightdf['DepTime'].to_list())
+flightdf['CRSDepTime']= convert_time(flightdf['CRSDepTime'].to_list())
+flightdf['ArrTime']= convert_time(flightdf['ArrTime'].to_list())
+flightdf['CRSArrTime']= convert_time(flightdf['CRSArrTime'].to_list())
+flightdf
+
+
+flightdf.shape
+
+try:
+    conn= pymysql.connect(host='localhost',user='varun',password='password',database='flight')
+    # create cursor
+    cursor=conn.cursor()
+    
+# creating column list for insertion
+    cols = "`,`".join([str(i) for i in flightdf.columns.tolist()])
+
+# Insert DataFrame recrds one by one.
+    for i,row in flightdf.iterrows():
+        sql = "INSERT INTO `flight` (`" +cols + "`) VALUES (" + "%s,"*(len(row)-1) + "%s)"
+        cursor.execute(sql, tuple(row))
+    # the connection is not autocommitted by default, so we must commit to save our changes
+        conn.commit()
+
+    print("true")
+except pymysql.Error as e:
+        print(e)
+
+canceldf= pd.read_csv('L_CANCELLATION.csv', skiprows=1, names=['Code','Description'])
+canceldf = canceldf.append({'Code':'F','Description':'Flight Successful'}, ignore_index = True)
+try:
+    conn= pymysql.connect(host='localhost',user='varun',password='password',database='flight')
+    # create cursor
+    cursor=conn.cursor()
+    
+# creating column list for insertion
+    cols = "`,`".join([str(i) for i in canceldf.columns.tolist()])
+
+# Insert DataFrame recrds one by one.
+    for i,row in canceldf.iterrows():
+        sql = "INSERT INTO `cancellation` (`" +cols + "`) VALUES (" + "%s,"*(len(row)-1) + "%s)"
+        cursor.execute(sql, tuple(row))
+    # the connection is not autocommitted by default, so we must commit to save our changes
+        conn.commit()
+
+    print("true")
+except pymysql.Error as e:
+        print(e)
